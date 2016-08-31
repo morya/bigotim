@@ -32,6 +32,9 @@ func (l *LinkMng) addStats(id int, count int) {
 
 func (l *LinkMng) getStats() {
 	var oldsum int = 0
+	var duration time.Duration = time.Second * 5
+
+	secs := duration.Seconds()
 	for {
 
 		var sum int = 0
@@ -43,10 +46,10 @@ func (l *LinkMng) getStats() {
 
 		diff := sum - oldsum
 
-		log.Infof("diff = %20d, sum = %20d, oldsum=%20d", diff, sum, oldsum)
+		log.Infof("diff = %20f, sum = %20d, oldsum=%20d", (float64)(diff)/secs, sum, oldsum)
 		oldsum = sum
 
-		<-time.After(time.Second)
+		<-time.After(time.Second * 5)
 	}
 }
 
@@ -70,10 +73,12 @@ func (l *LinkMng) startClient() {
 }
 
 func (l *LinkMng) Main() {
+	var p sync.Pool
+
 	for i := 0; i < int(*clientCount); i++ {
 		log.Infof("start client %d", i)
 		go l.startClient()
 	}
 
-	l.getStats()
+	go l.getStats()
 }

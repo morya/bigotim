@@ -11,25 +11,26 @@ import (
 )
 
 type Link struct {
-	mng     *LinkMng
-	runid   int
-	NetConn net.Conn
-	Reader  *bufio.Reader
-	Writer  *bufio.Writer
-	coder   Coder
+	exitChan chan struct{}
+	mng      *LinkMng
+	runid    int
+	NetConn  net.Conn
+	Reader   *bufio.Reader
+	Writer   *bufio.Writer
+	coder    Coder
 }
 
-/**
-* create link from net.Conn, for Server interface
- */
-func NewLink(id int, conn net.Conn) (*Link, error) {
-	return &Link{
-		runid:   id,
-		NetConn: conn,
-		Reader:  bufio.NewReader(conn),
-		Writer:  bufio.NewWriter(conn),
-	}, nil
-}
+///**
+//* create link from net.Conn, for Server interface
+// */
+//func NewLink(id int, conn net.Conn) (*Link, error) {
+//	return &Link{
+//		runid:   id,
+//		NetConn: conn,
+//		Reader:  bufio.NewReader(conn),
+//		Writer:  bufio.NewWriter(conn),
+//	}, nil
+//}
 
 // create link from ip address, for client interface
 func NewLinkDial(id int, addr string, l *LinkMng) (*Link, error) {
@@ -46,11 +47,12 @@ func NewLinkDial(id int, addr string, l *LinkMng) (*Link, error) {
 	log.Print("dial connection ok")
 
 	return &Link{
-		mng:     l,
-		runid:   id,
-		NetConn: conn,
-		Reader:  bufio.NewReader(conn),
-		Writer:  bufio.NewWriter(conn),
+		exitChan: make(chan struct{}, 100),
+		mng:      l,
+		runid:    id,
+		NetConn:  conn,
+		Reader:   bufio.NewReader(conn),
+		Writer:   bufio.NewWriter(conn),
 	}, nil
 }
 
@@ -110,6 +112,7 @@ func (c *Link) Run() {
 func (c *Link) readLoop() {
 	defer func() {
 		if r := recover(); r != nil {
+			close(c.exitChan)
 			log.Errorf("recover from err, %v", r)
 		}
 	}()
@@ -118,6 +121,7 @@ func (c *Link) readLoop() {
 		content, err := c.Reader.ReadString('\n')
 		if err != nil {
 			log.Printf("id %v: read string failed, %v", c.runid, err)
+			close(c.exitChan)
 			c.NetConn.Close()
 			break
 		} else {
